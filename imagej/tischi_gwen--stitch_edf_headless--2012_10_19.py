@@ -45,6 +45,7 @@ xe = 3600;
 ye = 2600;
 # ***************
 
+check = False;
 
 def makeStitchingLayoutFile(jobdir):
 	text = ["# Define the number of dimensions we are working on",
@@ -52,14 +53,14 @@ def makeStitchingLayoutFile(jobdir):
 		"",
 		"# Define the image coordinates",
 		"%s/rescaled_flipped_0001.tif; ; (0.0, 0.0)" % jobdir,
-		"%s/rescaled_flipped_0002.tif; ; (-2.7149572, 848.9615)" % jobdir,
-		"%s/rescaled_flipped_0003.tif; ; (1143.0209, 5.956549)" % jobdir,
-		"%s/rescaled_flipped_0004.tif; ; (-19.02124, 1696.8993)" % jobdir,
-		"%s/rescaled_flipped_0005.tif; ; (2283.501, 10.802994)" % jobdir,
-		"%s/rescaled_flipped_0006.tif; ; (1134.7283, 854.1822)" % jobdir,
-		"%s/rescaled_flipped_0007.tif; ; (1126.4774, 1703.0598)" % jobdir,
-		"%s/rescaled_flipped_0008.tif; ; (2272.0295, 1709.6473)" % jobdir,
-		"%s/rescaled_flipped_0009.tif; ; (2278.7786, 860.52997)" % jobdir,
+		"%s/rescaled_flipped_0002.tif; ; (1285.8373, 6.911499)" % jobdir,
+		"%s/rescaled_flipped_0003.tif; ; (2578.7954, 13.650116)" % jobdir,
+		"%s/rescaled_flipped_0004.tif; ; (-3.8151245, 964.0991)" % jobdir,
+		"%s/rescaled_flipped_0005.tif; ; (1282.6155, 970.9992)" % jobdir,
+		"%s/rescaled_flipped_0006.tif; ; (2573.373, 978.29346)" % jobdir,
+		"%s/rescaled_flipped_0007.tif; ; (-7.9190063, 1929.3987)" % jobdir,
+		"%s/rescaled_flipped_0008.tif; ; (1277.9832, 1936.6804)" % jobdir,
+		"%s/rescaled_flipped_0009.tif; ; (2568.67, 1943.9832)" % jobdir,
 		""]
         text = '\n'.join(text)
         text = text + '\n'
@@ -71,14 +72,52 @@ def makeStitchingLayoutFile(jobdir):
         layoutfile.close()
         return layoutfilename
         
+
+def copyStitchingLayoutFile(dirIn,expName,jobdir,p):
+	layoutfilename = os.path.join(dirIn,"processed","mainstitch.txt")
+	if expName == "Experiment-41-": 
+		tmp = "mainstitch"+str(p)+".txt"
+		layoutfilename = os.path.join("/g/almfscreen/Gwen/2012-08-16--tifs--mainstitch",tmp)		
+		pathOld = "F:/2012-08-16--tifs/Experiment-41-"+str(p)+".tif_files/processed"
+	elif expName == "Experiment-28-": 
+		tmp = "mainstitch.txt"
+		folder = "/g/almfscreen/Gwen/2012-08-14--tifs/Experiment-28-"+str(p)+".tif_files/processed/"
+		layoutfilename = os.path.join(folder,tmp)		
+		pathOld = "X:/Gwen/2012-08-14--tifs/Experiment-28-"+str(p)+".tif_files/processed"
+		
+	print "reading: "+layoutfilename
+        
+	f = open(layoutfilename, 'r')
+	lines = f.readlines()
+	f.close()
+	
+	pathNew = jobdir
+	for i in range(len(lines)):
+		lines[i] = lines[i].replace(pathOld,pathNew)
+		#print lines[i]
+        	
+	# write the jobs to files
+	layoutfilename = os.path.join(jobdir,"mainstitch.txt")
+	print "writing: "+layoutfilename
+	layoutfile = file(layoutfilename, "w")
+	for line in lines:
+		layoutfile.write(line)
+	layoutfile.close()
+	return layoutfilename
+
+
         
 def process(dirIn, dirOut, expName, ps, pe, ts, te):
 
+	
 	jobid = commands.getoutput("echo $PBS_JOBID").split('.')[0]
+	jobid = jobid.replace("[","_").replace("]","")  # because the jobids look like 2356385[1] which causes problems
 	print "job id: "+jobid
 	jobdir = os.path.join("/tmp",str(jobid)+"_fiji")
+	print "job dir: "+jobdir
 	
 	for p in range(ps,pe+1):
+		
 		
 		pID = str(p);
 		
@@ -94,6 +133,7 @@ def process(dirIn, dirOut, expName, ps, pe, ts, te):
 				shutil.rmtree(jobdir)                
 			print "creating "+jobdir
 			os.mkdir(jobdir)
+					
 		
 			if stitching:
 				
@@ -129,21 +169,26 @@ def process(dirIn, dirOut, expName, ps, pe, ts, te):
 							IJ.run(impFFT, "Bandpass Filter...", "filter_large=10000 filter_small=200 suppress=None tolerance=5 ");
 						#impFFT.show()
 						
-						stats = imp.getStatistics(Measurements.MEAN)
-						IJ.log("stats.mean = "+str(stats.mean)); # this is only the mean of one slice...is this a problem?
+						#stats = imp.getStatistics(Measurements.MEAN)
+						#IJ.log("stats.mean = "+str(stats.mean)); # this is only the mean of one slice...is this a problem?
 						
 						print "dividing image stack by FFT stack...";
 						ic = ImageCalculator()
 						impCorr = ic.run("Divide create 32-bit stack", imp, impFFT);
 						#impCorr.show()
+
+						def computeMean(pixels):
+  							return sum(pixels) / float(len(pixels))
 						
-						print "multiplying by stats.mean for going back to 8 bit space..."
+						print "multiplying each image by 128/mean for going back to 8 bit space..."
 						stack = impCorr.getStack()
-						for i in range(1, impFFT.getNSlices()+1):
+						for i in range(1, impCorr.getNSlices()+1):
 							ip = stack.getProcessor(i).convertToFloat()
-	    						ip.multiply(stats.mean)
-	    						#stack.setSlice(stack.getSliceLabel(i), ip)
-						
+					 		mean = computeMean(ip.getPixels())
+					 		print "multiplying slice "+str(i)+" by "+str(float(128/mean))
+	    						ip.multiply(float(128/mean))
+	    						
+	    					
 						IJ.log("converting from 32-bit to 8-bit...")
 						IJ.setMinAndMax(impCorr, 0, 255);
 						IJ.run(impCorr,"8-bit","");
@@ -154,12 +199,15 @@ def process(dirIn, dirOut, expName, ps, pe, ts, te):
 						# save images
 						IJ.log("saving bandpass corrected image sequence: "+os.path.join(jobdir,fileOut))
 						IJ.run(impCorr, "Image Sequence... ", "format=TIFF name=["+fileOut+"] start=1 digits=4 save=["+jobdir+"]");
-						#impCorr.close(); imp.close(); impFFT.hide();
+						if check:
+							IJ.run(impCorr, "Image Sequence... ", "format=TIFF name=["+fileOut+"] start=1 digits=4 save=["+dirOut+"]");
+						#impCorr.close(); imp.close(); impFFT.hide();  
 						
 	
 					# stitching
 					IJ.log("STITCHING START **********")
-					layoutFile = makeStitchingLayoutFile(jobdir)
+					layoutFile = copyStitchingLayoutFile(dirIn,expName,jobdir,ps)
+					###layoutFile = makeStitchingLayoutFile(jobdir)
 					createPreview = 0
 					computeOverlap = 0
 					fusion_method="Linear Blending"
@@ -168,11 +216,16 @@ def process(dirIn, dirOut, expName, ps, pe, ts, te):
 					#fusion=1 regression=0.30 max/avg=2.50 absolute=3.50"
 					st = Stitch_Image_Collection() 
 					st.alpha = 1
-					IJ.log("layout file ="+str(layoutFile))
+					IJ.log("layout file: "+str(layoutFile))
 					impStitched = st.work(layoutFile, createPreview, computeOverlap,  fusion_method,  handleRGB,  showImage) 
 					stitchedFile = os.path.join(jobdir,tID+zID+"_stitched.tif");
 					#impStitched.show()
 					IJ.saveAs(impStitched,"Tiff", stitchedFile);
+					if check: 
+						print os.path.join(dirOut,tID+zID+"_stitched.tif")
+						stitchedFile = os.path.join(dirOut,tID+zID+"_stitched.tif");
+						IJ.saveAs(impStitched,"Tiff", stitchedFile);
+					
 					IJ.log("STITCHING END **********")
 					
 			
@@ -180,10 +233,6 @@ def process(dirIn, dirOut, expName, ps, pe, ts, te):
 			
 				IJ.log("combine z.....")	
 				
-				#IJ.log("process id ="+subprocess.check_output("echo $$").strip())
-				#IJ.run("Image Sequence...", "open=["+dirOut+"] file=[] or=.*flipped.* sort");
-				#imp = IJ.getImage()
-	
 				#########
 				IJ.log("load stitched images into a stack...")
 				for z in range(zs,ze+1):
@@ -204,9 +253,18 @@ def process(dirIn, dirOut, expName, ps, pe, ts, te):
 				IJ.run(imp, "Crop", "");	
 				#imp.show()
 				########
-				
-				#IJ.log("normalise intensity of all slices...")
-				
+
+
+				# the following normalisation should not be necessary, because they are already all 128/mean normalised
+				#IJ.log("-- normalise intensity of all slices...")
+				#stats = imp.getStatistics(Measurements.MEAN)
+				#IJ.log("stats.mean = "+str(stats.mean)); # this is only the mean of one slice...is this a problem?		
+				#stack = imp.getStack()
+				#for i in range(1, impFFT.getNSlices()+1):
+			 	#	ip = stack.getProcessor(i).convertToFloat()
+	    		#	ip.multiply(128/stats.mean)
+	    	    #		#stack.setSlice(stack.getSliceLabel(i), ip)
+						
 				#run("Set Slice...", "slice="+1);
 		        	#run("Set Measurements...", "  mean redirect=None decimal=9");
 				#run("Select None");
@@ -242,7 +300,7 @@ def process(dirIn, dirOut, expName, ps, pe, ts, te):
 	
 				doEDF = True
 				if doEDF:
-					IJ.log("EDF...start")
+					IJ.log("EDF: start...")
 					parameters = Parameters()
 					parameters.setQualitySettings(1)
 					parameters.setTopologySettings(0)
@@ -250,27 +308,19 @@ def process(dirIn, dirOut, expName, ps, pe, ts, te):
 					parameters.showTopology = False
 					edfh = ExtendedDepthOfFieldHeadless(imp, parameters)
 					imp = edfh.processHeadless()
-					IJ.log("EDF...done")
+					IJ.log("EDF: done.")
 					#imp.show()
-				
-				
-				#IJ.run(imp,"Extended Depth of Field (Easy mode)...", "quality='1' topology='0' show-view='on' show-topology='off'");
-				#s=split(getImageInfo(),'\n'); IJ.log("current image: "+s[1]);
-				#while(s[1]!="Title: Output") {
-				#	wait(10000);
-				#		s=split(getImageInfo(),'\n'); 
-				#	IJ.log("waiting for Output Image EDOF; current image: "+s[1]);
-				#}
-				#
-				#
-				#
-				
-				edfFile = os.path.join(dirOut,expName+tID+"_EDOF_noTimeNorm.tif");
-				IJ.log("EDF save: "+edfFile)			
-				IJ.saveAs(imp,"Tiff", edfFile);
-				IJ.log("EDF save: done.")
-				#close(); // projection
-				#close(); // stack
+								
+					IJ.log("EDF: converting from 32-bit to 8-bit...")
+					IJ.setMinAndMax(imp, 0, 255);
+					IJ.run(imp,"8-bit","");
+							
+					edfFile = os.path.join(dirOut,expName+pID+"-"+tID+"_EDOF_noTimeNorm.tif");
+					IJ.log("EDF save: "+edfFile)			
+					IJ.saveAs(imp,"Tiff", edfFile);
+					IJ.log("EDF save: done.")
+					#close(); // projection
+					#close(); // stack
 
 				print "TIMEPOINT FINISHED ***************"
 				if os.path.isdir(jobdir):

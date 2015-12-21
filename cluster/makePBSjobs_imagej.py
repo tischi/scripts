@@ -14,17 +14,11 @@ JOB_FILE_PATTERN = 'job_{}.sh'
 JOB_NAME_PATTERN = re.compile('(([0-9]+)(\[([0-9]+)\])?)(\..*)?')
 
 #python2.7 /g/almf/software/scripts/cluster/makePBSjobs_imagej.py --prg-binary /g/almf/software/bin2/fiji --prg-plugins-dir=/g/almf/software/fiji_tischi/plugins --prg-script=/g/almf/software/scripts/imagej/tischi_gwen--stitch_edf_headless--2012_10_19.py --data-in-dir=/g/almf/group/ALMFstuff/Tischi/projects/GwendolynEich/data --data-out-dir=/g/almf/group/ALMFstuff/Tischi/projects/GwendolynEich/data--fiji-out
+#python2.7 /g/almf/software/scripts/cluster/makePBSjobs_imagej_gwen2012.py --prg-binary /g/almf/software/bin2/fiji --prg-plugins-dir=/g/almf/software/fiji_tischi/plugins --prg-script=/g/almf/software/scripts/imagej/tischi_gwen--stitch_edf_headless--2012_10_19.py --data-in-dir=/g/almfscreen/Gwen/2012-08-14--tifs
 
-def prepare_jobs(prg_binary, prg_plugins_dir, prg_script, data_in_dir, data_out_dir, delete=True,
+def prepare_jobs(prg_binary, prg_plugins_dir, prg_script, data_in_dir, delete=True,
                  num_jobs_max=500):
-                 
-    # GET NUMBER OF IMAGES AND GROUPS
-    #print 'Additional parameters for the job list...'
-    ps = 3
-    pe = 7
-    ts = 11
-    te = 18	
-    
+                    
     # create output directories
     def ensure_empty_dir(path):
         if os.path.isdir(path):
@@ -88,28 +82,40 @@ def prepare_jobs(prg_binary, prg_plugins_dir, prg_script, data_in_dir, data_out_
   
 
     # Loop over batches, check status file, print out commands
+
+    ######################################################
+    ## THIS PART IS PROGRAMME AND PROJECT SPECIFIC: START
+        
+    ps = 1
+    pe = 1
+    ts = 11
+    te = 12
+    
     iJob = 0
+    dt=2
     for p in range(ps,pe+1):
-        for t in range(ts,te+1):
+        for t in range(ts,te+1,dt):
         
             script_file,script_name = writeJobHeader(iJob)
             print script_name
             
-            ######################################################
-            ## THIS PART IS PROGRAMME AND PROJECT SPECIFIC: START
+            expname = "Experiment-28-"
             cmd = [
                 prg_binary,
                 "--headless",
                 "-cp {}".format(prg_plugins_dir),
                 "{}".format(prg_script),
-                data_in_dir,
-                data_out_dir, 
+                os.path.join(data_in_dir,expname+str(p)+".tif_files"),
+                output_dir, 
+                expname,
                 "{}".format(p),
                 "{}".format(p),
                 "{}".format(t),
-                "{}".format(t),
+                "{}".format(t+dt-1),
                 " "
             ]
+            
+            
             ## THIS PART IS PROGRAMME AND PROJECT SPECIFIC: END
             ######################################################
             
@@ -162,7 +168,7 @@ if __name__ == '__main__':
         parser.add_argument('--prg-plugins-dir', dest='prg_plugins_dir', default='/g/almf/software/fiji_tischi_plugins')
         parser.add_argument('--prg-script', dest='prg_script', default='')
         parser.add_argument('--data-in-dir', dest='data_in_dir')
-        parser.add_argument('--data-out-dir', dest='data_out_dir')
+        #parser.add_argument('--data-out-dir', dest='data_out_dir')
         parser.add_argument('--batch-size', dest='batch_size', type=int,
                             default=-1)
         parser.add_argument('--max-jobs', dest='max_jobs', type=int,
@@ -174,7 +180,7 @@ if __name__ == '__main__':
         #print("Using CellProfiler version 2.0.{}".format(args.version))
 
         ## prepare the jobs
-        prepare_jobs(args.prg_binary, args.prg_plugins_dir, args.prg_script, args.data_in_dir, args.data_out_dir, True, args.max_jobs)
+        prepare_jobs(args.prg_binary, args.prg_plugins_dir, args.prg_script, args.data_in_dir, True, args.max_jobs)
     
     else: #except:    
         print "something went wrong!"    

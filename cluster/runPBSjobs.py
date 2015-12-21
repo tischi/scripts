@@ -9,6 +9,10 @@ import random
 import argparse
 import itertools
 
+# python2.7 /g/almf/software/scripts/cluster/runPBSjobs.py --job-array=/g/almfscreen/Gwen/2012-08-14--tifs--cluster/jobs/jobarray.sh
+# python2.7 /g/almf/software/scripts/cluster/runPBSjobs.py --cluster-dir=/g/almfscreen/Gwen/2012-08-14--tifs--clust_manage
+# python2.7 /g/almf/software/scripts/cluster/runPBSjobs.py --cluster-dir=/g/almfscreen/Gwen/2012-08-16--tifs--clust_manage
+
 JAVA_VM_RUNNING = False
 LOOP_WAIT_TIME = 60
 NUM_JOBS_MAX = 500
@@ -178,6 +182,8 @@ if __name__ == '__main__':
         # parse arguments
         parser = argparse.ArgumentParser(
                     description='Start PBS jobs.')
+                    
+        parser.add_argument('--cluster-dir', dest='cluster_dir', default=None)
         parser.add_argument('--job-array', dest='job_array', default=None)
         parser.add_argument('--input-dir', dest='input_dir')
         parser.add_argument('--output-dir', dest='output_dir')
@@ -194,12 +200,24 @@ if __name__ == '__main__':
                             default=None)
         args = parser.parse_args()
 
-        jobArrayFile = args.job_array
+
+        if args.cluster_dir is not None:
+            logDir = os.path.join(args.cluster_dir,"log")
+            jobDir = os.path.join(args.cluster_dir,"jobs")
+            jobArrayFile = os.path.join(jobDir,"jobarray.sh")
+            runningJobIdFileName = jobArrayFile + '.jobids'
+            
+            totalJobCount = 0
+            for fname in os.listdir(jobDir):
+                if fname.startswith("job_"):
+                    totalJobCount = totalJobCount + 1
+        
+        #jobArrayFile = args.job_array
 
         runningJobs = {}
-        runningJobIdFileName = args.job_id_file
+        #runningJobIdFileName = args.job_id_file
         
-        if args.only_check or jobArrayFile is not None:
+        if 0: # and (args.only_check or jobArrayFile is not None:
             if runningJobIdFileName is None:
                 raise Exception("You need to specify a file " \
                                 "containing the running job ids.")
@@ -222,32 +240,30 @@ if __name__ == '__main__':
 
         start = False
 
-        if not args.only_check or jobArrayFile is not None:
+        if 1: #not args.only_check or jobArrayFile is not None:
 
-            import wx
+            #import wx
 
-            if jobArrayFile is None:
-                application = wx.PySimpleApp()
-                print 'Select jobarray via dialog.'
-                dialog = wx.FileDialog(None, style=wx.OPEN)
-                if dialog.ShowModal() == wx.ID_OK:
-                    jobArrayFile = dialog.GetPath()
-                else:
-                    print 'No jobarray selected'
-                    sys.exit(1)
-                dialog.Destroy()
+            #if jobArrayFile is None:
+            #    application = wx.PySimpleApp()
+            #    print 'Select jobarray via dialog.'
+            #    dialog = wx.FileDialog(None, style=wx.OPEN)
+            #    if dialog.ShowModal() == wx.ID_OK:
+            #        jobArrayFile = dialog.GetPath()
+            #    else:
+            #        print 'No jobarray selected'
+            #        sys.exit(1)
+            #    dialog.Destroy()
 
-            print("Pipeline file: {}".format(pipeline_file))
-
-            # probably a file that checks which jobs are running
-            if runningJobIdFileName is None:
-                runningJobIdFileName = jobArrayFile + '.jobids'
+      
+            with open(runningJobIdFileName, 'w') as f:
+                f.write('{}\n{}\n{}\n'.format(logDir, jobDir, totalJobCount))
 
             if not args.no_start:
                 if args.force_start:
                     start = True
                 else:
-                    answer = raw_input('Do you want to start {} jobs? (y/n)' \
+                    answer = raw_input('Do you want to start {} jobs (y/n)? ' \
                                        .format(totalJobCount))
                     if answer.lower() in ('y', 'yes'):
                         start = True
@@ -323,6 +339,6 @@ if __name__ == '__main__':
         exit_code = -1
 
     finally:
-
-
+        pass
+        
     sys.exit(exit_code)

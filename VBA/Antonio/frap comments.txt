@@ -1,0 +1,16 @@
+- the ERES can only be detected as spots within a z-range of 4*0.3um=1.2um, independent of the pinhole
+	- this makes sense as the excitation PSF becomes blurry outside this range
+- it seems that opening the pinhole to 2.4um provides a quite even sum intensity measurement within this 1.2 um range
+	- thus, it does not make sense to open the pinhole even more?!
+	- TODO: check how the top-hat filter affects this! a too small filter will make it worse, because the ERES will be subtracted from itself if it become too blurry
+
+- zstack during FRAP:
+	- works with CENTER
+	- dz = 0.8um is good value, given the excitation PSF of the NA1.4 63x oil lens (see above)
+	- however when the imaging is fast (<100ms), using the piezo seems to be inaccurate, i.e. the center plane is not in the center
+	- for big dz=4um (nz=3) the piezo was loosing it completely, stage behaved fine
+	- the stage is precise no matter what the speed is, but then the total acquisition time is longer
+	
+=> use stage if possible, easier and more accurate!
+
+
